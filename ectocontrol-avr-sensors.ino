@@ -7,23 +7,22 @@
 
 const int numHR = 4;  // 4 general registers
 const int numIR = 10; // 10 sensors data
-
 const byte defaultAddr = 0xF0;
 byte curAddr = 0x00;
 const word rs485Speed = 19200;
-
 const byte sensType = 0x22; // 0x22 - temp, 0x23 - humidity
-
-DHT_Unified dht(2, DHT11);
-Modbus bus(curAddr,Serial,4);
+const int sensorsCount = 5;
+DHT_Unified* dht[sensorsCount];
+Modbus bus(curAddr,Serial,2);
 uint16_t modbusData[numHR + numIR];
 
 void setup() {
   Serial.begin(19200);
-  
-  dht.begin();
-  sensor_t sensor;
-  dht.temperature().getSensor(&sensor);
+
+  for(int i = 0; i < sensorsCount; ++i){
+    dht[i] = new DHT_Unified(i+9, DHT11);
+    dht[i]->begin();
+  }
 
   EEPROM.get(0, curAddr);
   if (curAddr == 0) {
@@ -51,12 +50,15 @@ void checkAddr(){
 
 void updateSensorsData() {
   sensors_event_t event;
-  dht.temperature().getEvent(&event);
-  modbusData[0x04] = word(event.temperature * 10.0);
+  
+  for(int i = 0; i < sensorsCount; ++i){
+    dht[i]->temperature().getEvent(&event);
+    modbusData[0x04 + i] = word(event.temperature * 10.0);
+  }
 }
 
 void loop() {
-  int8_t state = bus.poll(modbusData, numHR + numIR);
+  bus.poll(modbusData, numHR + numIR);
 
   checkAddr();
 
