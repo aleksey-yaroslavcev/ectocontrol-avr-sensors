@@ -5,29 +5,30 @@
 #include <DHT.h>
 #include <DHT_U.h>
 
+const int dhtPinStart = 9;
+const int ledPin = 7;
+const int butPin = 8;
+const int rs485Pin = 2;
+const word rs485Speed = 19200;
+
 const byte sensType = 0x22; // 0x22 - temp, 0x23 - humidity
 const int sensorsCount = 5;
 DHT_Unified* dht[sensorsCount];
 
-const int ledPin = 7;
-
-const int butPin = 6;
-
 const byte defaultAddr = 0xF0;
 byte curAddr = 0x00;
-const word rs485Speed = 19200;
-const int rs485pin = 2;
-Modbus bus(curAddr, Serial, rs485pin);
+Modbus bus(curAddr, Serial, rs485Pin);
+
 const int numHR = 4;  // 4 general registers
 const int numIR = 10; // 10 sensors data
 uint16_t modbusData[numHR + numIR];
 
-void blinkLed(int cnt = 1) {
+void blinkLed(int cnt = 1, int delayms = 50) {
   for(int i = 0; i < cnt; ++i) {
     digitalWrite (ledPin, HIGH);
-    delay(50);
+    delay(delayms);
     digitalWrite (ledPin, LOW);
-    delay(50);
+    delay(delayms);
   }
 }
 
@@ -37,13 +38,17 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   digitalWrite (ledPin, LOW);
 
-  if(digitalRead(butPin)) {
-    blinkLed(5);
+  pinMode(butPin, INPUT);
+
+  if(digitalRead(butPin) == HIGH) {
+    blinkLed(5, 200);
     EEPROM.put(0, defaultAddr);
+  } else {
+    blinkLed(3, 200);
   }
 
   for(int i = 0; i < sensorsCount; ++i){
-    dht[i] = new DHT_Unified(i + 8, DHT11);
+    dht[i] = new DHT_Unified(i + dhtPinStart, DHT11);
     dht[i]->begin();
   }
 
@@ -79,7 +84,9 @@ void updateSensorsData() {
 void loop() {
   int8_t state = bus.poll(modbusData, numHR + numIR);
   if(state > 4) {
-    blinkLed();
+    blinkLed(1, 20);
+  } else {
+    //blinkLed(1);
   }
 
   checkAddr();
