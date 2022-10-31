@@ -1,7 +1,7 @@
 // based on https://ectostroy.ru/download/protocol_description_modbus_RS485_ectostroy_ru.pdf
 
 #include <EEPROM.h>
-#include <ModbusRtu.h>
+#include "ModbusRtu.h"
 #include <DHT.h>
 #include <DHT_U.h>
 
