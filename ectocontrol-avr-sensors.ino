@@ -59,7 +59,7 @@ void setup() {
   modbusData[0x01] = 0x00;
   modbusData[0x02] = curAddr;
 
-  word tmp = (word(sensType) << 8) + 1;
+  word tmp = (word(sensType) << 8) + sensorsCount;
   modbusData[0x03] = tmp;
 }
 
