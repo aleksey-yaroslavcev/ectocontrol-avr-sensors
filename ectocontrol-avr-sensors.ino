@@ -19,9 +19,8 @@ const byte defaultAddr = 0xF0;
 byte curAddr = 0x00;
 Modbus bus(curAddr, Serial, rs485Pin);
 
-const int numHR = 4;  // 4 general registers
-const int numIR = 10; // 10 sensors data
-uint16_t modbusData[numHR + numIR];
+
+uint16_t modbusData[30];
 
 void blinkLed(int cnt = 1, int delayms = 50) {
   for(int i = 0; i < cnt; ++i) {
@@ -65,10 +64,10 @@ void setup() {
 }
 
 void checkAddr(){
-  const byte newAddr = modbusData[0x02] & 0xFF;
+  const byte newAddr = bus.getID();;
   if(newAddr != curAddr) {
     EEPROM.put(0, newAddr);
-    bus.setID(newAddr);
+    curAddr =newAddr;
   }
 }
 
@@ -77,16 +76,14 @@ void updateSensorsData() {
   
   for(int i = 0; i < sensorsCount; ++i){
     dht[i]->temperature().getEvent(&event);
-    modbusData[0x04 + i] = word(event.temperature * 10.0);
+    modbusData[0x20 + i] = word(event.temperature * 10.0);
   }
 }
 
 void loop() {
-  int8_t state = bus.poll(modbusData, numHR + numIR);
+  int8_t state = bus.poll(modbusData, 30);
   if(state > 4) {
     blinkLed(1, 20);
-  } else {
-    //blinkLed(1);
   }
 
   checkAddr();

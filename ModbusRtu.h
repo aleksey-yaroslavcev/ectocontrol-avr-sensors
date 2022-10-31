@@ -102,7 +102,10 @@ enum MB_FC
     MB_FC_WRITE_COIL               = 5,	/*!< FCT=5 -> write single coil or output */
     MB_FC_WRITE_REGISTER           = 6,	/*!< FCT=6 -> write single register */
     MB_FC_WRITE_MULTIPLE_COILS     = 15,	/*!< FCT=15 -> write multiple coils or outputs */
-    MB_FC_WRITE_MULTIPLE_REGISTERS = 16	/*!< FCT=16 -> write multiple registers */
+    MB_FC_WRITE_MULTIPLE_REGISTERS = 16,	/*!< FCT=16 -> write multiple registers */
+
+    MB_FC_READ_PROG                = 0x46,
+    MB_FC_WRITE_PROG               = 0x47
 };
 
 enum COM_STATES
@@ -139,7 +142,10 @@ const unsigned char fctsupported[] =
     MB_FC_WRITE_COIL,
     MB_FC_WRITE_REGISTER,
     MB_FC_WRITE_MULTIPLE_COILS,
-    MB_FC_WRITE_MULTIPLE_REGISTERS
+    MB_FC_WRITE_MULTIPLE_REGISTERS,
+
+    MB_FC_READ_PROG,
+    MB_FC_WRITE_PROG
 };
 
 #define T35  5
@@ -181,6 +187,9 @@ private:
     int8_t process_FC6( uint16_t *regs, uint8_t u8size );
     int8_t process_FC15( uint16_t *regs, uint8_t u8size );
     int8_t process_FC16( uint16_t *regs, uint8_t u8size );
+
+    int8_t process_FC0x46( uint16_t *regs, uint8_t u8size );
+    int8_t process_FC0x47( uint16_t *regs, uint8_t u8size );
     void buildException( uint8_t u8exception ); // build exception message
 
 public:
@@ -724,7 +733,7 @@ int8_t Modbus::poll( uint16_t *regs, uint8_t u8size )
 
     au16regs = regs;
     u8regsize = u8size;
-	uint8_t u8current;
+	  uint8_t u8current;
 
 
     // check if there is any incoming frame
@@ -746,8 +755,9 @@ int8_t Modbus::poll( uint16_t *regs, uint8_t u8size )
     u8lastError = i8state;
     if (i8state < 7) return i8state;
 
-    // check slave id
-    if (au8Buffer[ ID ] != u8id) return 0;
+    bool isEctoProgRead = au8Buffer[ ID ] == 0 && au8Buffer[ FUNC ] == MB_FC_READ_PROG;
+    // check slave id and ectocontrol prog functions
+    if (au8Buffer[ ID ] != u8id && !isEctoProgRead) return 0;
 
     // validate message: CRC, FCT, address and size
     uint8_t u8exception = validateRequest();
@@ -787,6 +797,13 @@ int8_t Modbus::poll( uint16_t *regs, uint8_t u8size )
         break;
     case MB_FC_WRITE_MULTIPLE_REGISTERS :
         return process_FC16( regs, u8size );
+        break;
+
+    case MB_FC_READ_PROG :
+        return process_FC0x46( regs, u8size );
+        break;
+    case MB_FC_WRITE_PROG :
+        return process_FC0x47( regs, u8size );
         break;
     default:
         break;
@@ -976,6 +993,12 @@ uint8_t Modbus::validateRequest()
         u16regs += word( au8Buffer[ NB_HI ], au8Buffer[ NB_LO ]);
         u8regs = (uint8_t) u16regs;
         if (u8regs > u8regsize) return EXC_ADDR_RANGE;
+        break;
+    case MB_FC_READ_PROG:
+        if (u8BufferSize != 4) return EXC_REGS_QUANT;
+        break;
+    case MB_FC_WRITE_PROG:
+        if (u8BufferSize != 5) return EXC_REGS_QUANT;
         break;
     }
     return 0; // OK, no exception code thrown
@@ -1323,4 +1346,18 @@ int8_t Modbus::process_FC16( uint16_t *regs, uint8_t /*u8size*/ )
     sendTxBuffer();
 
     return u8CopyBufferSize;
+}
+
+int8_t Modbus::process_FC0x46( uint16_t */*regs*/, uint8_t /*u8size*/ )
+{
+    u8BufferSize = 3;
+    au8Buffer[ 2 ] = u8id;
+    return u8BufferSize + 2;
+}
+
+int8_t Modbus::process_FC0x47( uint16_t *regs, uint8_t /*u8size*/ )
+{
+    u8BufferSize = 3;
+    u8id = au8Buffer[ 2 ];
+    return u8BufferSize + 2;
 }
