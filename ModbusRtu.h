@@ -41,7 +41,6 @@
 #include <inttypes.h>
 #include "Arduino.h"
 
-
 /**
  * @struct modbus_t
  * @brief
@@ -674,7 +673,7 @@ int8_t Modbus::poll()
     // transfer Serial buffer frame to auBuffer
     u8lastRec = 0;
     int8_t i8state = getRxBuffer();
-    if (i8state < 6) //7 was incorrect for functions 1 and 2 the smallest frame could be 6 bytes long
+    if (i8state < 4) //7 was incorrect for functions 1 and 2 the smallest frame could be 6 bytes long
     {
         u8state = COM_IDLE;
         u16errCnt++;
@@ -753,12 +752,12 @@ int8_t Modbus::poll( uint16_t *regs, uint8_t u8size )
     u8lastRec = 0;
     int8_t i8state = getRxBuffer();
     u8lastError = i8state;
-    if (i8state < 7) return i8state;
+    if (i8state < 4) return i8state;
 
     bool isEctoProgRead = au8Buffer[ ID ] == 0 && au8Buffer[ FUNC ] == MB_FC_READ_PROG;
     // check slave id and ectocontrol prog functions
     if (au8Buffer[ ID ] != u8id && !isEctoProgRead) return 0;
-
+    
     // validate message: CRC, FCT, address and size
     uint8_t u8exception = validateRequest();
     if (u8exception > 0)
@@ -1351,13 +1350,17 @@ int8_t Modbus::process_FC16( uint16_t *regs, uint8_t /*u8size*/ )
 int8_t Modbus::process_FC0x46( uint16_t */*regs*/, uint8_t /*u8size*/ )
 {
     u8BufferSize = 3;
+    uint8_t u8CopyBufferSize = u8BufferSize + 2;
     au8Buffer[ 2 ] = u8id;
-    return u8BufferSize + 2;
+    sendTxBuffer();
+    return u8CopyBufferSize;
 }
 
 int8_t Modbus::process_FC0x47( uint16_t *regs, uint8_t /*u8size*/ )
 {
     u8BufferSize = 3;
+    uint8_t u8CopyBufferSize = u8BufferSize + 2;
     u8id = au8Buffer[ 2 ];
-    return u8BufferSize + 2;
+    sendTxBuffer();
+    return u8CopyBufferSize;
 }
