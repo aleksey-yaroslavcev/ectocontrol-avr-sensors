@@ -2,9 +2,13 @@
 
 #include <EEPROM.h>
 #include "ModbusRtu.h"
+
 #include <DHT.h>
 #include <DHT_U.h>
 #include <ArduinoUniqueID.h>
+
+#include <DS18B20.h>
+
 
 const int dhtPinStart = 5;
 const int ledPin = 3;
@@ -20,6 +24,7 @@ enum SensorType {
 const byte sensType = ST_TEMP;
 const int sensorsCount = 8;
 DHT_Unified* dht[sensorsCount];
+DS18B20* ds[sensorsCount];
 
 const byte defaultAddr = 0xF0;
 byte curAddr = 0x00;
@@ -57,8 +62,13 @@ void setup() {
 
   for(int i = 0; i < sensorsCount; ++i){
     pinMode(i + dhtPinStart, INPUT);
-    dht[i] = new DHT_Unified(i + dhtPinStart, DHT11);
-    dht[i]->begin();
+    if(sensType == 0x23) {
+      dht[i] = new DHT_Unified(i + dhtPinStart, DHT11);
+      dht[i]->begin();
+    } else {
+      ds[i] = new DS18B20(i + dhtPinStart);
+      ds[i]->selectNext();
+    }
   }
 
   EEPROM.get(0, curAddr);
@@ -72,6 +82,7 @@ void setup() {
   word tmp = (word(sensType) << 8) + sensorsCount;
   modbusData[0x03] = tmp;
   delay(1000);
+  updateSensorsData();
   blinkLed(1, 200);
 }
 
@@ -89,13 +100,13 @@ void updateSensorsData() {
   
   for(int i = 0; i < sensorsCount; ++i){
     if (sensType == ST_TEMP) {
-      dht[i]->temperature().getEvent(&event);
-      modbusData[sensorsDataOffset + i] = word(event.temperature * 10.0);
+      modbusData[sensorsDataOffset + i] = word(ds[i]->getTempC() * 10.0);
     } else {
       dht[i]->humidity().getEvent(&event);
       modbusData[sensorsDataOffset + i] = word(event.relative_humidity * 10.0);
     }
   }
+  blinkLed(2, 20);
 }
 
 void loop() {
@@ -106,5 +117,4 @@ void loop() {
 
   checkAddr();
 
-  updateSensorsData();
 }
