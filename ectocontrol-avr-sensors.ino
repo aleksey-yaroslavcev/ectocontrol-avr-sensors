@@ -106,15 +106,15 @@ void updateSensorsData() {
       modbusData[sensorsDataOffset + i] = word(event.relative_humidity * 10.0);
     }
   }
-  blinkLed(2, 20);
 }
 
 void loop() {
   int8_t state = bus.poll(modbusData, modbusDataSize);
   if(state > 4) {
-    blinkLed(1, 20);
+    blinkLed(1, 10);
   }
 
   checkAddr();
 
+  updateSensorsData();
 }
